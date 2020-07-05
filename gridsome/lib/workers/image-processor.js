@@ -149,9 +149,12 @@ exports.processImage = async function ({
         compressionLevel: config.pngCompressionLevel,
         adaptiveFiltering: false
       })
+      // set minQuality to 0.0, see
+      // https://github.com/kornelski/pngquant/issues/176
+      // https://github.com/kornelski/pngquant/issues/176
       const quality = config.quality / 100
       plugins.push(imageminPngquant({
-        quality: [quality, quality]
+        quality: [0.0, quality]
       }))
     }
 
