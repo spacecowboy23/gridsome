@@ -3,7 +3,7 @@ const fs = require('fs-extra')
 const imageSize = require('probe-image-size')
 const AssetsQueue = require('../../app/queue/AssetsQueue')
 const ImageProcessQueue = require('../../app/queue/ImageProcessQueue')
-const { process: processImages } = require('../image-processor')
+const {process: processImages} = require('../image-processor')
 const context = path.resolve(__dirname, '../../__tests__')
 const imagesDir = path.join(context, 'assets', 'static')
 const imageCacheDir = path.join(context, 'assets', 'cache')
@@ -20,7 +20,7 @@ afterEach(async () => {
 
 test('process png image', async () => {
   const files = await process(['1000x600.png'])
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const {type, width, height} = imageSize.sync(files[0].buffer)
   const fromStats = await fs.stat(files[0].filePath)
   const toStats = await fs.stat(files[0].destPath)
 
@@ -32,7 +32,7 @@ test('process png image', async () => {
 
 test('process jpg image', async () => {
   const files = await process(['1000x600.jpg'])
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const {type, width, height} = imageSize.sync(files[0].buffer)
   const fromStats = await fs.stat(files[0].filePath)
   const toStats = await fs.stat(files[0].destPath)
 
@@ -44,7 +44,7 @@ test('process jpg image', async () => {
 
 test('process webp image', async () => {
   const files = await process(['image.webp'])
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const {type, width, height} = imageSize.sync(files[0].buffer)
   const fromStats = await fs.stat(files[0].filePath)
   const toStats = await fs.stat(files[0].destPath)
 
@@ -56,7 +56,7 @@ test('process webp image', async () => {
 
 test('process svg image', async () => {
   const files = await process(['logo.svg'])
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const {type, width, height} = imageSize.sync(files[0].buffer)
   const fromStats = await fs.stat(files[0].filePath)
   const toStats = await fs.stat(files[0].destPath)
 
@@ -68,7 +68,7 @@ test('process svg image', async () => {
 
 test('process gif image', async () => {
   const files = await process(['logo.gif'])
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const {type, width, height} = imageSize.sync(files[0].buffer)
   const fromStats = await fs.stat(files[0].filePath)
   const toStats = await fs.stat(files[0].destPath)
 
@@ -79,8 +79,8 @@ test('process gif image', async () => {
 })
 
 test('resize image', async () => {
-  const files = await process(['1000x600.png'], { width: 100 })
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const files = await process(['1000x600.png'], {width: 100})
+  const {type, width, height} = imageSize.sync(files[0].buffer)
 
   expect(type).toEqual('png')
   expect(width).toEqual(100)
@@ -88,16 +88,16 @@ test('resize image', async () => {
 })
 
 test('rotate image based on EXIF', async () => {
-  const files = await process(['rotated.jpg'], { width: 480 })
-  const { width, height } = imageSize.sync(files[0].buffer)
+  const files = await process(['rotated.jpg'], {width: 480})
+  const {width, height} = imageSize.sync(files[0].buffer)
 
   expect(width).toEqual(480)
   expect(height).toEqual(640)
 })
 
 test('crop image', async () => {
-  const files = await process(['1000x600.png'], { width: 500, height: 500 })
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const files = await process(['1000x600.png'], {width: 500, height: 500})
+  const {type, width, height} = imageSize.sync(files[0].buffer)
 
   expect(type).toEqual('png')
   expect(width).toEqual(500)
@@ -105,8 +105,8 @@ test('crop image', async () => {
 })
 
 test('do not upscale images', async () => {
-  const files = await process(['350x250.png'], { width: 500 })
-  const { type, width, height } = imageSize.sync(files[0].buffer)
+  const files = await process(['350x250.png'], {width: 500})
+  const {type, width, height} = imageSize.sync(files[0].buffer)
 
   expect(type).toEqual('png')
   expect(width).toEqual(350)
@@ -119,7 +119,7 @@ test('use cached process results', async () => {
     path.join(imageCacheDir, '1000x600.97c148e.test.png')
   )
 
-  const files = await process(['1000x600.png'], { width: 1000 }, true)
+  const files = await process(['1000x600.png'], {width: 1000}, true)
   const cacheStats = await fs.stat(files[0].cachePath)
   const destStats = await fs.stat(files[0].destPath)
 
@@ -131,7 +131,7 @@ test('use cached process results', async () => {
   expect(destStats.size).toEqual(cacheStats.size)
 })
 
-async function process (filenames, options = {}, withCache = false) {
+async function process(filenames, options = {}, withCache = false) {
   const config = {
     pathPrefix,
     imagesDir,
@@ -143,7 +143,7 @@ async function process (filenames, options = {}, withCache = false) {
     }
   }
 
-  const processQueue = new AssetsQueue({ context, config })
+  const processQueue = new AssetsQueue({context, config})
 
   const assets = await Promise.all(filenames.map(async filename => {
     const filePath = path.join(context, 'assets', filename)
@@ -157,7 +157,7 @@ async function process (filenames, options = {}, withCache = false) {
     outputDir: context
   })
 
-  return Promise.all(assets.map(async ({ filePath, src, hash }) => {
+  return Promise.all(assets.map(async ({filePath, src, hash}) => {
     const imageOptions = processQueue.images.createImageOptions(options)
     const filename = processQueue.images.createFileName(filePath, imageOptions, hash)
     const cachePath = path.join(imageCacheDir, filename)
@@ -165,6 +165,6 @@ async function process (filenames, options = {}, withCache = false) {
 
     const buffer = await fs.readFile(destPath)
 
-    return { filePath, destPath, cachePath, buffer }
+    return {filePath, destPath, cachePath, buffer}
   }))
 }

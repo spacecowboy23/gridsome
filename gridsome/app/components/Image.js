@@ -1,4 +1,5 @@
 import { stringifyClass } from '../utils/class'
+// import ImageTest from './ImageTest'
 
 // @vue/component
 export default {
@@ -17,6 +18,37 @@ export default {
     imageWidths: { type: String, default: undefined }
   },
 
+  /*render: function (h, context, props) {
+     return (
+       <ImageTest>
+       <span> Hello </span> world!
+       </ImageTest>
+   )
+   }*/
+
+
+
+  /*render: function (createElement, {data, props, children}) {
+    // const {src, srcset, size, dataUri} = props.src
+    const isLazy = !props.immediate && props.src.dataUri
+    // console.log('context', context)
+    console.log('props', data, props, children);
+    const directives = data.directives || []
+
+    function appropriateListComponent() {
+      // var items = context.props
+
+      return ImageTest;
+
+    }
+
+
+    return createElement(
+      appropriateListComponent(),
+      {attrs: {...props, isLazy}, children}
+    )
+  }*/
+
   render: (h, { data, props }) => {
     const classNames = [data.class, 'g-image']
     const noscriptClassNames = [data.staticClass, classNames.slice()]
@@ -34,6 +66,7 @@ export default {
 
       case 'object': {
         const { src, srcset, size, dataUri } = props.src
+
 
         const isLazy = !isImmediate && dataUri
         const sizes = attrs.sizes || props.src.sizes
@@ -54,8 +87,9 @@ export default {
     }
 
     hook.update = (oldVnode, vnode) => {
-      const { attrs: oldAttrs = {}} = oldVnode.data
-      const { attrs = {}} = vnode.data
+
+      const { attrs: oldAttrs = {} } = oldVnode.data
+      const { attrs = {} } = vnode.data
 
       if (attrs['data-src'] && attrs.src !== oldAttrs.src) {
         // clear srcset and sizes to show the dataUri image
@@ -64,6 +98,7 @@ export default {
       }
     }
 
+    /*
     res.push(h('img', {
       ...data,
       class: classNames,
@@ -72,6 +107,93 @@ export default {
       attrs,
       hook
     }))
+*/
+
+    /*const imgAttrs = {...attrs}
+
+    delete imgAttrs.srcset
+    delete imgAttrs['data-srcset']
+    delete imgAttrs['data-sizes']
+    // imgAttrs['data-src']=props.src.src;
+    // imgAttrss['data-srcset'] = null;*/
+
+    const {
+      alt,
+      mimeType,
+      src,
+      srcset,
+      width,
+      'data-src': dataSrc,
+      'data-srcset': dataSrcset,
+      'data-sizes': dataSizes
+    } = attrs
+
+    const imageTag = h('img', {
+      ...data,
+      class: classNames,
+      props,
+      attrs: {
+        alt,
+        src,
+        width,
+        'data-src': dataSrc ? dataSrc : null
+      },
+      hook
+    })
+
+    const sourceTag = h('source', {
+      ...data,
+      class: [...classNames],
+      props,
+      attrs: {
+        alt,
+        type: mimeType,
+        width,
+        srcset: srcset ? srcset : null,
+        'data-sizes': dataSizes,
+        'data-srcset': dataSrcset ? dataSrcset : null
+      },
+      hook
+    })
+
+    let sourceTagWebp = null
+    if (
+      props.src.srcWebp &&
+      props.src.srcWebp.srcset
+    ) {
+
+      sourceTagWebp = h('source', {
+        ...data,
+        class: [...classNames],
+        props,
+        attrs: {
+          alt,
+          type: 'image/webp',
+          width,
+          srcset: srcset ? props.src.srcWebp.srcset : null,
+          'data-sizes': dataSizes,
+          'data-srcset': dataSrcset ? props.src.srcWebp.srcset : null
+        },
+        hook
+      })
+    }
+    let cn = []
+    if (attrs['data-src'] || attrs['data-srcset']) cn.push('g-image--lazy')
+
+    console.log('classnames', classNames, cn)
+    const picture = h('picture', {
+      class: [...classNames, ...cn],
+      directives
+    },
+      [sourceTagWebp, sourceTag, imageTag]
+    )
+
+
+    res.push(h('div', {
+      class: {
+        relative: true
+      }
+    }, [picture]))
 
     if (attrs['data-src']) {
       classNames.push('g-image--lazy')
@@ -84,7 +206,7 @@ export default {
         domProps: {
           innerHTML: `` +
             `<img src="${props.src.src}" class="${stringifyClass(noscriptClassNames)}"` +
-            (attrs.width ? ` width="${attrs.width}"`: '') +
+            (attrs.width ? ` width="${attrs.width}"` : '') +
             (attrs.alt ? ` alt="${attrs.alt}"` : '') +
             `>`
         }

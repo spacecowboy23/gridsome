@@ -10,23 +10,37 @@ const { forwardSlash } = require('../../utils')
 const { warmupSharp } = require('../../utils/sharp')
 const { reject } = require('lodash')
 
+/**
+ * replace file extension .jp(e)g / .png with any given extension
+ *
+ * @param {array} arrayWithFilePaths - array with filepaths, aka results.sourceset
+ * @param {string} extension - the extension we want to replace ('.webp')
+ * @returns {*[]|*}
+ */
+const changeExtensionToWebp = (arrayWithFilePaths, extension) => {
+  if (!Array.isArray(arrayWithFilePaths)) return []
+
+  return arrayWithFilePaths.map(item => item.replace(/(\.jpe?g|\.png)/, `${extension}`))
+}
+
 class ImageProcessQueue {
-  constructor ({ context, config }) {
+  constructor({ context, config }) {
     this.context = context
     this.config = config
     this._queue = new Map()
   }
 
-  get queue () {
+  get queue() {
     return Array.from(this._queue.values())
   }
 
-  async add (filePath, options = {}) {
-    const asset = await this.preProcess(filePath, options)
+  async add(filePath, options = {}) {
+    let asset = await this.preProcess(filePath, options)
 
     if (process.env.GRIDSOME_MODE === 'serve') {
       return asset
     }
+
 
     asset.sets.forEach(({ filename, destPath, width, height }) => {
       if (!this._queue.has(destPath + asset.cacheKey)) {
@@ -38,7 +52,8 @@ class ImageProcessQueue {
           filename,
           filePath,
           width: asset.width,
-          height: asset.height
+          height: asset.height,
+          hash: asset.hash
         })
       }
     })
@@ -46,7 +61,8 @@ class ImageProcessQueue {
     return asset
   }
 
-  async preProcess (filePath, options = {}) {
+
+  async preProcess(filePath, options = {}) {
     const { imageExtensions, outputDir, pathPrefix, maxImageWidth } = this.config
     const { minSizeDistance = 300 } = this.config.images || {}
     const imagesDir = path.relative(outputDir, this.config.imagesDir)
@@ -66,9 +82,15 @@ class ImageProcessQueue {
       throw new Error(`${filePath} was not found.`)
     }
 
+
     const hash = await md5File(filePath)
     const fileBuffer = await fs.readFile(filePath)
     const warmSharp = await warmupSharp(sharp)
+
+    const isImageUseAspectRatio = process.env.IMAGE_USE_ASPECT_RATIO || ''
+    const isImageUseWebp = process.env.IMAGE_USE_WEBP || ''
+    const imageWrapperCssClass = process.env.IMAGE_WRAPPER_CSS_CLASS || ''
+    const imagePictureTagCssClass = process.env.IMAGE_PICTURE_TAG_CSS_CLASS || ''
 
     let pipeline
     let metadata
@@ -162,6 +184,7 @@ class ImageProcessQueue {
       sets
     }
 
+
     const classNames = (options.classNames || []).concat(['g-image'])
     const isSrcset = options.srcset !== false
     const isLazy = options.immediate === undefined
@@ -179,34 +202,116 @@ class ImageProcessQueue {
       )
     }
 
-    if (isLazy && isSrcset) {
-      classNames.push('g-image--lazy')
+    /**
+     * create styleTag for aspect ratio boxes
+     *
+     * @type {string}
+     */
+    const calcAspectRatio = ` style="padding-top: calc(${results.size.height} / ${results.size.width} * 100vw);"`
 
+    /**
+     * creates a string of class names for the wrapper of <picture/> Tag
+     *
+     * @returns {string}
+     */
+    const classnamesForWrapperElement = () => {
+      let cn = []
+      if (isImageUseAspectRatio) cn.push('g-image g-image--aspect-ratio')
+      if (imageWrapperCssClass) cn.push(imageWrapperCssClass)
+      return cn.join(' ')
+    }
+    /**
+     * creates a string of class names for the <picture/> Tag
+     *
+     * @returns {string}
+     */
+    const classnamesForPictureElement = () => {
+      let cn = []
+      if (isImageUseAspectRatio) cn.push('g-image--aspect-ratio-inside')
+      if (isLazy && results.srcset) cn.push('g-image--lazy g-image--before-load')
+      if (imagePictureTagCssClass) cn.push(imagePictureTagCssClass)
+      return [ ...classNames, ...cn].join(' ')
+    }
+
+    /**
+     * creates HTML for <source/> Tag
+     *
+     * @param {string} imageType - correspondig image type, e.g. 'image/png'
+     * @param {array} srcsetTarget
+     * @returns {string}
+     */
+    const createSourceTag = (imageType, srcsetTarget) => {
+      if (!(
+        isSrcset &&
+        isLazy
+      )) return ''
+
+      return `<source` +
+        ` width="${results.size.width}"` +
+        ` type="${mime.lookup(imageType)}"` +
+        (options.height ? ` height="${options.height}"` : '') +
+        (options.alt ? ` alt="${options.alt}"` : '') +
+        (isLazy && isSrcset ? ` data-srcset="${srcsetTarget.join(', ')}"` : '') +
+        (isLazy && isSrcset ? ` data-sizes="${results.sizes}"` : '') +
+        `/>`
+    }
+
+    /**
+     * create fallback img Element in case JS is disabled
+     */
+    if (isLazy && isSrcset) {
       results.noscriptHTML = '' +
         `<noscript>` +
-        `<img class="${classNames.join(' ')} g-image--loaded" ` +
-        `src="${results.src}" width="${results.size.width}"` +
+        `<img` +
+        ` class="${classNames.join(' ')}"` +
+        ` src="${results.src}" width="${results.size.width}"` +
         (options.height ? ` height="${options.height}"` : '') +
         (options.alt ? ` alt="${options.alt}">` : '>') +
         `</noscript>`
-
-      classNames.push('g-image--loading')
     }
 
-    results.imageHTML = '' +
-      `<img class="${classNames.join(' ')}" ` +
-      `src="${isLazy ? results.dataUri || results.src : results.src}" ` +
-      `width="${results.size.width}"` +
-      (options.height ? ` height="${options.height}"` : '') +
+    results.imageHTML = ''
+
+    // create opening wrapper element
+    if (
+      isImageUseAspectRatio
+      || imageWrapperCssClass
+    ) {
+      results.imageHTML += `<div class="${classnamesForWrapperElement()}"` +
+        `${isImageUseAspectRatio ? calcAspectRatio : ''}>`
+    }
+
+    // create picture element
+    results.imageHTML += `<picture class="${classnamesForPictureElement()}">` +
+
+      (isImageUseWebp
+        && ext !== '.webp'
+        && process.env.GRIDSOME_MODE !== 'serve' ? createSourceTag('.webp', changeExtensionToWebp(results.srcset, '.webp')) : ''
+      ) +
+
+      (createSourceTag(ext, results.srcset)) +
+
+      `<img` +
+      ` src="${isLazy ? results.dataUri || results.src : results.src}"` +
+      (isLazy && isSrcset ? ` data-src="${results.src}"` : '') +
       (options.alt ? ` alt="${options.alt}"` : '') +
-      (isLazy && isSrcset ? ` data-srcset="${results.srcset.join(', ')}"` : '') +
-      (isLazy && isSrcset ? ` data-sizes="${results.sizes}"` : '') +
-      (isLazy && isSrcset ? ` data-src="${results.src}">` : '>')
+      (results.size.width ? ` width="${results.size.width}"` : '') +
+      ` />` +
+
+      `</picture>`
+
+    // create closing wrapper element
+    if (
+      isImageUseAspectRatio
+      || imageWrapperCssClass
+    ) {
+      results.imageHTML += `</div>`
+    }
 
     return results
   }
 
-  createImageOptions (options) {
+  createImageOptions(options) {
     const imageOptions = []
 
     if (options.width) {
@@ -240,7 +345,7 @@ class ImageProcessQueue {
     return imageOptions
   }
 
-  createFileName (relPath, arr, hash) {
+  createFileName(relPath, arr, hash) {
     const { name, ext } = path.parse(relPath)
     const string = arr.length ? createOptionsQuery(arr) : ''
 
@@ -251,7 +356,7 @@ class ImageProcessQueue {
   }
 }
 
-function computeScaledImageSize (originalSize, options, maxImageWidth) {
+function computeScaledImageSize(originalSize, options, maxImageWidth) {
   const { width, height, fit = 'cover' } = options
 
   const targetWidth = width || originalSize.width
@@ -306,17 +411,17 @@ function computeScaledImageSize (originalSize, options, maxImageWidth) {
 
 ImageProcessQueue.uid = 0
 
-function genHash (string) {
+function genHash(string) {
   return crypto.createHash('md5').update(string).digest('hex')
 }
 
-function createOptionsQuery (arr) {
+function createOptionsQuery(arr) {
   return arr.reduce((values, { key, value }) => {
     return (values.push(`${key}=${encodeURIComponent(value)}`), values)
   }, []).join('&')
 }
 
-async function createDataUri (pipeline, type, width, height, defaultBlur, options = {}) {
+async function createDataUri(pipeline, type, width, height, defaultBlur, options = {}) {
   const blur = options.blur !== undefined ? parseInt(options.blur, 10) : defaultBlur
 
   const resizeOptions = {}
@@ -335,7 +440,7 @@ async function createDataUri (pipeline, type, width, height, defaultBlur, option
   )
 }
 
-async function createBlurSvg (pipeline, mimeType, width, height, blur, resize = {}) {
+async function createBlurSvg(pipeline, mimeType, width, height, blur, resize = {}) {
   const blurWidth = 64
   const blurHeight = Math.round(height * (blurWidth / width))
   const buffer = await pipeline

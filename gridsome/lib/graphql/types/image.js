@@ -3,6 +3,19 @@ const path = require('path')
 const { isResolvablePath } = require('../../utils')
 const { SUPPORTED_IMAGE_TYPES } = require('../../utils/constants')
 
+
+/**
+ * replace file extension .jp(e)g / .png with any given extension
+ *
+ * @param {array} arrayWithFilePaths - array with filepaths, aka results.sourceset
+ * @param {string} extension - the extension we want to replace ('.webp')
+ * @returns {*[]|*}
+ */
+const changeExtensionToWebp = (arrayWithFilePaths, extension) => {
+  if (!Array.isArray(arrayWithFilePaths)) return []
+  return arrayWithFilePaths.map(item => item.replace(/(\.jpe?g|\.png)/, `${extension}`))
+}
+
 exports.createImageScalar = schemaComposer => {
   return schemaComposer.createScalarTC({
     name: 'Image',
@@ -69,9 +82,9 @@ exports.imageType = {
     fit: { type: 'ImageFit', description: 'Fit', defaultValue: 'cover' },
     quality: { type: 'Int', description: 'Quality (default: 75)' },
     blur: { type: 'Int', description: 'Blur level for base64 string' },
-    background: { type: 'String', description: 'Background color for \'contain\''}
+    background: { type: 'String', description: 'Background color for \'contain\'' }
   },
-  async resolve (obj, args, context, { fieldName }) {
+  async resolve(obj, args, context, { fieldName }) {
     const value = obj[fieldName]
     let result
 
@@ -87,6 +100,15 @@ exports.imageType = {
       return result.src
     }
 
+    let srcWebp = {}
+    if (
+      process.env.IMAGE_USE_WEBP
+      && result.mimeType !== 'image/webp'
+    ) {
+      srcWebp.srcset = changeExtensionToWebp([...result.srcset], '.webp')
+      srcWebp.src = changeExtensionToWebp([result.src], '.webp')[0]
+    }
+
     return {
       type: result.type,
       mimeType: result.mimeType,
@@ -94,7 +116,8 @@ exports.imageType = {
       size: result.size,
       sizes: result.sizes,
       srcset: result.srcset,
-      dataUri: result.dataUri
+      dataUri: result.dataUri,
+      srcWebp
     }
   }
 }

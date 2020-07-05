@@ -443,3 +443,111 @@ test('give useful error for null byte images', async () => {
 
   await expect(queue.add(filePath)).rejects.toThrow('Failed to process image')
 })
+
+test('sourceTag not include .webp Image', async () => {
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML).not.toMatch(/\.webp/)
+})
+
+test('sourceTag include .webp Image', async () => {
+  process.env.IMAGE_USE_WEBP = 'true'
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML)
+    .toEqual(
+      expect.stringContaining('type="image/webp"')
+    )
+
+  process.env.IMAGE_USE_WEBP = ''
+})
+
+test('wrapper Div include classname from process.env.IMAGE_WRAPPER_CSS_CLASS', async () => {
+  process.env.IMAGE_WRAPPER_CSS_CLASS = 'exampleClassWrapper'
+
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML)
+    .toEqual(
+      expect.stringContaining('<div class="exampleClassWrapper">')
+    )
+
+  process.env.IMAGE_WRAPPER_CSS_CLASS = ''
+})
+
+test('wrapper Div include classname from process.env.IMAGE_WRAPPER_CSS_CLASS and "g-image--aspect-ratio"', async () => {
+  process.env.IMAGE_WRAPPER_CSS_CLASS = 'exampleClassWrapper'
+  process.env.IMAGE_USE_ASPECT_RATIO = true
+
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML)
+    .toEqual(
+      expect.stringContaining('"g-image g-image--aspect-ratio exampleClassWrapper"')
+    )
+
+  process.env.IMAGE_WRAPPER_CSS_CLASS = ''
+  process.env.IMAGE_USE_ASPECT_RATIO = ''
+})
+
+test('wrapper Div includes styleTag for aspectRatio', async () => {
+  process.env.IMAGE_USE_ASPECT_RATIO = true
+
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML)
+    .toEqual(
+      expect.stringContaining('style')
+    )
+
+  process.env.IMAGE_USE_ASPECT_RATIO = ''
+})
+
+test('wrapper Div not includes styleTag for aspectRatio', async () => {
+
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML)
+    .toEqual(
+      expect.not.stringContaining('style')
+    )
+})
+
+test('pictureTag include classname from process.env.IMAGE_PICTURE_TAG_CSS_CLASS', async () => {
+  process.env.IMAGE_PICTURE_TAG_CSS_CLASS = 'exampleClassPictureTag'
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+
+  expect(result.imageHTML)
+    .toEqual(
+      expect.stringContaining('exampleClassPictureTag')
+    )
+})
+
+test('wrapper Div includes styleTag and className for aspectRatio ', async () => {
+  process.env.IMAGE_USE_ASPECT_RATIO = 'true'
+  const filePath = path.resolve(context, 'assets/1000x600.png')
+  const queue = new AssetsQueue({ context, config: baseconfig })
+
+  const result = await queue.add(filePath)
+  expect(result.imageHTML).toEqual(
+    expect.stringContaining('style')
+  )
+  expect(result.imageHTML).toEqual(
+    expect.stringContaining('g-image--aspect-ratio')
+  )
+})
