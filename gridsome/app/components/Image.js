@@ -58,6 +58,7 @@ export default {
     const hook = data.hook || {}
     const res = []
 
+
     switch (typeof props.src) {
       case 'string':
         attrs.src = props.src
@@ -98,44 +99,32 @@ export default {
       }
     }
 
-    /*
-    res.push(h('img', {
-      ...data,
-      class: classNames,
-      directives,
-      props,
-      attrs,
-      hook
-    }))
-*/
-
-    /*const imgAttrs = {...attrs}
-
-    delete imgAttrs.srcset
-    delete imgAttrs['data-srcset']
-    delete imgAttrs['data-sizes']
-    // imgAttrs['data-src']=props.src.src;
-    // imgAttrss['data-srcset'] = null;*/
-
     const {
       alt,
-      mimeType,
       src,
       srcset,
-      width,
       'data-src': dataSrc,
       'data-srcset': dataSrcset,
       'data-sizes': dataSizes
     } = attrs
 
+    const {
+      height,
+      width,
+      src: {
+        mimeType
+      }
+    } = props
+
     const imageTag = h('img', {
       ...data,
-      class: classNames,
+      class: classNames.join(' '),
       props,
       attrs: {
         alt,
         src,
-        width,
+        width: width ? width : null,
+        height: height ? height : null,
         'data-src': dataSrc ? dataSrc : null
       },
       hook
@@ -143,12 +132,10 @@ export default {
 
     const sourceTag = h('source', {
       ...data,
-      class: [...classNames],
+      class: classNames.join(' '),
       props,
       attrs: {
-        alt,
         type: mimeType,
-        width,
         srcset: srcset ? srcset : null,
         'data-sizes': dataSizes,
         'data-srcset': dataSrcset ? dataSrcset : null
@@ -164,12 +151,10 @@ export default {
 
       sourceTagWebp = h('source', {
         ...data,
-        class: [...classNames],
+        class: classNames.join(' '),
         props,
         attrs: {
-          alt,
           type: 'image/webp',
-          width,
           srcset: srcset ? props.src.srcWebp.srcset : null,
           'data-sizes': dataSizes,
           'data-srcset': dataSrcset ? props.src.srcWebp.srcset : null
@@ -177,23 +162,19 @@ export default {
         hook
       })
     }
+
     let cn = []
     if (attrs['data-src'] || attrs['data-srcset']) cn.push('g-image--lazy')
 
-    console.log('classnames', classNames, cn)
     const picture = h('picture', {
-      class: [...classNames, ...cn],
+      class: [...classNames, ...cn].join(' '),
+      style: { display: 'flex' },
       directives
     },
       [sourceTagWebp, sourceTag, imageTag]
     )
 
-
-    res.push(h('div', {
-      class: {
-        relative: true
-      }
-    }, [picture]))
+    res.push(picture)
 
     if (attrs['data-src']) {
       classNames.push('g-image--lazy')
