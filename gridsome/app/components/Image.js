@@ -18,37 +18,6 @@ export default {
     imageWidths: { type: String, default: undefined }
   },
 
-  /*render: function (h, context, props) {
-     return (
-       <ImageTest>
-       <span> Hello </span> world!
-       </ImageTest>
-   )
-   }*/
-
-
-
-  /*render: function (createElement, {data, props, children}) {
-    // const {src, srcset, size, dataUri} = props.src
-    const isLazy = !props.immediate && props.src.dataUri
-    // console.log('context', context)
-    console.log('props', data, props, children);
-    const directives = data.directives || []
-
-    function appropriateListComponent() {
-      // var items = context.props
-
-      return ImageTest;
-
-    }
-
-
-    return createElement(
-      appropriateListComponent(),
-      {attrs: {...props, isLazy}, children}
-    )
-  }*/
-
   render: (h, { data, props }) => {
     const classNames = [data.class, 'g-image']
     const noscriptClassNames = [data.staticClass, classNames.slice()]
@@ -168,7 +137,7 @@ export default {
 
     const picture = h('picture', {
       class: [...classNames, ...cn].join(' '),
-      style: { display: 'flex' },
+      style: { display: 'block' },
       directives
     },
       [sourceTagWebp, sourceTag, imageTag]
