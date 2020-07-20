@@ -94,11 +94,9 @@ exports.processImage = async function ({
   options = {}
 }) {
 
-
   const isImageUseWebp = process.env.IMAGE_USE_WEBP || ''
-
   const { ext } = path.parse(filePath)
-  const { backgroundColor } = imagesConfig
+  const { backgroundColor, defaultQuality = 75 } = imagesConfig
 
   if (cachePath) {
     // change cachePath, destPath for .webp Image
@@ -123,11 +121,12 @@ exports.processImage = async function ({
     ) { return fs.copy(cachePath, destPath) }
   }
 
-  let buffer = await fs.readFile(filePath)
+  const buffer = await fs.readFile(filePath)
+
 
   const config = {
     pngCompressionLevel: parseInt(options.pngCompressionLevel, 10) || 9,
-    quality: parseInt(options.quality, 10) || 75,
+    quality: parseInt(options.quality, 10) || defaultQuality,
     width: parseInt(options.width, 10) || null,
     height: parseInt(options.height, 10) || null,
     jpegProgressive: true
@@ -137,13 +136,23 @@ exports.processImage = async function ({
 
     const plugins = []
     const sharpImage = sharp(buffer)
+    const compress = imagesConfig.compress !== false && config.quality < 100
 
     // Rotate based on EXIF Orientation tag
     sharpImage.rotate()
 
     resiz(sharpImage, config, options, width, height, backgroundColor)
 
+      // create .webp image when flag is set
+  if (
+    isImageUseWebp
+    && ['.png', '.jpeg', '.jpg'].includes(ext)
+    // && process.env.GRIDSOME_MODE !== 'serve'
+  ) {
+    await createWebp(config, ext, destPath, filePath, options, width, height, backgroundColor)
+  }
 
+if (compress) {
     if (/\.png$/.test(ext)) {
       sharpImage.png({
         compressionLevel: config.pngCompressionLevel,
@@ -170,55 +179,56 @@ exports.processImage = async function ({
       }))
     }
 
-    if (/\.webp$/.test(ext)) {
-      sharpImage.webp({
-        quality: config.quality
-      })
-      plugins.push(imageminWebp({
-        quality: config.quality
-      }))
+      if (/\.webp$/.test(ext)) {
+        sharpImage.webp({
+          quality: config.quality
+        })
+        plugins.push(imageminWebp({
+          quality: config.quality
+        }))
+      }
     }
 
-    buffer = await sharpImage.toBuffer()
-    buffer = await imagemin.buffer(buffer, { plugins })
-  }
+    const sharpBuffer = await sharpImage.toBuffer()
+    const resultBuffer = compress
+      ? await imagemin.buffer(sharpBuffer, { plugins })
+      : sharpBuffer
+    const resultLength = Buffer.byteLength(resultBuffer)
+    const sharpLength = Buffer.byteLength(sharpBuffer)
+    const initLength = Buffer.byteLength(buffer)
 
-  await fs.outputFile(destPath, buffer)
-
-  // create .webp image when flag is set
-  if (
-    isImageUseWebp
-    && ['.png', '.jpeg', '.jpg'].includes(ext)
-    // && process.env.GRIDSOME_MODE !== 'serve'
-  ) {
-    await createWebp(config, ext, destPath, filePath, options, width, height, backgroundColor)
+    return fs.outputFile(
+      destPath,
+      resultLength < initLength
+        ? resultLength < sharpLength
+          ? resultBuffer
+          : sharpBuffer
+        : buffer
+    )
   }
 }
-
-exports.process = async function ({
-  queue,
-  context,
-  cacheDir,
-  imagesConfig
-}) {
-
-  await warmupSharp(sharp)
-  await pMap(queue, async set => {
-    const cachePath = cacheDir ? path.join(cacheDir, set.filename) : null
-
-    try {
-      await exports.processImage({
-        destPath: set.destPath,
-        imagesConfig,
-        cachePath,
-        ...set
-      })
-    } catch (err) {
-      const relPath = path.relative(context, set.filePath)
-      throw new Error(`Failed to process image ${relPath}. ${err.message}`)
-    }
-
-  }, {
-    concurrency: sysinfo.cpus.logical
-  })
-}
+  exports.process = async function ({
+    queue,
+    context,
+    cacheDir,
+    imagesConfig
+  }) {
+    await warmupSharp(sharp)
+    await pMap(queue, async set => {
+      const cachePath = cacheDir ? path.join(cacheDir, set.filename) : null
+  
+      try {
+        await exports.processImage({
+          destPath: set.destPath,
+          imagesConfig,
+          cachePath,
+          ...set
+        })
+      } catch (err) {
+        const relPath = path.relative(context, set.filePath)
+        throw new Error(`Failed to process image ${relPath}. ${err.message}`)
+      }
+    }, {
+      concurrency: sysinfo.cpus.logical
+    })
+  }
