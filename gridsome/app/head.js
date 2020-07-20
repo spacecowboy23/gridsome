@@ -60,8 +60,14 @@ icons.touchicons.forEach(({ width, height = width, src: href }) => {
   })
 })
 
+let noscriptImageUseAspectRatio = ''
+
+if(process.env.IMAGE_USE_ASPECT_RATIO) {
+  noscriptImageUseAspectRatio = ` .g-image--aspect-ratio{padding:0 !important;}`
+}
+
 head.noscript.push({
-  innerHTML: `<style>.g-image--loading{display:none;}</style>`
+  innerHTML: `<style>.g-image--loading{display:none;}${noscriptImageUseAspectRatio}</style>`
 })
 
 export default head

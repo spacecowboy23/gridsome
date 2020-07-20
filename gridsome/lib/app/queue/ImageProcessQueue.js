@@ -228,7 +228,7 @@ class ImageProcessQueue {
     const classnamesForPictureElement = () => {
       let cn = []
       if (isImageUseAspectRatio) cn.push('g-image--aspect-ratio-inside')
-      if (isLazy && results.srcset) cn.push('g-image--lazy g-image--before-load')
+      if (isLazy && results.srcset) cn.push('g-image--lazy g-image--loading')
       if (imagePictureTagCssClass) cn.push(imagePictureTagCssClass)
       return [ ...classNames, ...cn].join(' ')
     }

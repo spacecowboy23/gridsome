@@ -133,11 +133,12 @@ export default {
     }
 
     let cn = []
-    if (attrs['data-src'] || attrs['data-srcset']) cn.push('g-image--lazy')
+    if (attrs['data-src'] || attrs['data-srcset']) cn.push('g-image--lazy g-image--loading')
 
     const picture = h('picture', {
       class: [...classNames, ...cn].join(' '),
-      style: { display: 'block' },
+      // firefox needs a 'display' or 'height' to fire intersectionObserver
+      style: { 'min-height': '1px' },
       directives
     },
       [sourceTagWebp, sourceTag, imageTag]
@@ -147,7 +148,6 @@ export default {
 
     if (attrs['data-src']) {
       classNames.push('g-image--lazy')
-      classNames.push('g-image--loading')
       noscriptClassNames.push('g-image--loaded')
 
       // must render as innerHTML to make hydration work
