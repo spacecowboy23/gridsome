@@ -207,7 +207,7 @@ class ImageProcessQueue {
      *
      * @type {string}
      */
-    const calcAspectRatio = ` style="padding-top: calc(${results.size.height} / ${results.size.width} * 100vw);"`
+    const calcAspectRatio = ` style="padding-top: calc(${results.size.height} / ${results.size.width} * 100%);"`
 
     /**
      * creates a string of class names for the wrapper of <picture/> Tag
